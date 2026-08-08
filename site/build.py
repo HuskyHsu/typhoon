@@ -499,6 +499,12 @@ BASE_CSS = """
     font-size: 11px;
   }
 
+  .section-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
   /* ── Print (Portrait Default) ── */
   @page {
     size: portrait;
@@ -506,7 +512,7 @@ BASE_CSS = """
   }
 
   @media print {
-    .site-header, .btn-row, .section-copy-btn, footer { display: none !important; }
+    .site-header, .btn-row, .section-copy-btn, .section-link-btn, footer { display: none !important; }
     body { background: white; font-size: 11px; }
     .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
     .img-wrap { break-inside: avoid; }
@@ -532,6 +538,7 @@ SITE_HEADER_TPL = """
 
 PRINT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
 COPY_ICON  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+LINK_ICON  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
 BACK_ICON  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>'
 HOME_ICON  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
 
@@ -906,7 +913,10 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
 
   <div class="section-header">
     <div class="section-label">海上颱風警報 ➔ 颱風現況與預測</div>
-    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-sea-warn', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    <div class="section-actions">
+      <a href="https://www.cwa.gov.tw/V8/C/P/Typhoon/TY_WARN.html" target="_blank" rel="noopener" class="btn btn-xs btn-outline section-link-btn">{LINK_ICON}&nbsp;氣象署原網頁</a>
+      <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-sea-warn', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    </div>
   </div>
   <div id="sec-sea-warn">
     {sea_warn_html}
@@ -916,7 +926,10 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
 
   <div class="section-header">
     <div class="section-label">警報颱風（{zh_name}）路徑潛勢預報</div>
-    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-warn', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    <div class="section-actions">
+      <a href="https://www.cwa.gov.tw/V8/C/P/Typhoon/PTA.html" target="_blank" rel="noopener" class="btn btn-xs btn-outline section-link-btn">{LINK_ICON}&nbsp;氣象署原網頁</a>
+      <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-warn', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    </div>
   </div>
   <div id="sec-warn">
     {imgs_html if imgs_html else '<div class="empty">圖片不可用</div>'}
@@ -949,7 +962,10 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
 
   <div class="section-header">
     <div class="section-label">颱風消息 ➔ 路徑潛勢預報</div>
-    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-news', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    <div class="section-actions">
+      <a href="https://www.cwa.gov.tw/V8/C/P/Typhoon/TY_NEWS.html" target="_blank" rel="noopener" class="btn btn-xs btn-outline section-link-btn">{LINK_ICON}&nbsp;氣象署原網頁</a>
+      <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-news', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    </div>
   </div>
   <div id="sec-news">
     {news_html}
@@ -959,7 +975,10 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
 
   <div class="section-header">
     <div class="section-label">定量降水預報 ➔ 12小時預報圖</div>
-    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-qpf', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    <div class="section-actions">
+      <a href="https://www.cwa.gov.tw/V8/C/P/QPF.html" target="_blank" rel="noopener" class="btn btn-xs btn-outline section-link-btn">{LINK_ICON}&nbsp;氣象署原網頁</a>
+      <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-qpf', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    </div>
   </div>
   <div id="sec-qpf">
     {qpf_html}
@@ -969,7 +988,10 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
 
   <div class="section-header">
     <div class="section-label">警報單</div>
-    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-sheet', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    <div class="section-actions">
+      <a href="https://www.cwa.gov.tw/V8/C/P/Typhoon/TY_WARN.html" target="_blank" rel="noopener" class="btn btn-xs btn-outline section-link-btn">{LINK_ICON}&nbsp;氣象署原網頁</a>
+      <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-sheet', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+    </div>
   </div>
   <div id="sec-sheet">
     {sheet_html}
