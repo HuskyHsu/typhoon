@@ -4,6 +4,9 @@ on:
   schedule:
     # 每小時 10 分執行（等氣象署更新資料後再抓）
     - cron: '10 * * * *'
+  push:
+    branches:
+      - main
   workflow_dispatch:   # 也可以手動觸發
 
 permissions:
