@@ -481,9 +481,32 @@ BASE_CSS = """
   footer a { color: var(--color-primary); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
 
-  /* ── Print ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .section-header .section-label {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .btn-xs {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  /* ── Print (Portrait Default) ── */
+  @page {
+    size: portrait;
+    margin: 15mm;
+  }
+
   @media print {
-    .site-header, .btn-row, footer { display: none !important; }
+    .site-header, .btn-row, .section-copy-btn, footer { display: none !important; }
     body { background: white; font-size: 11px; }
     .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
     .img-wrap { break-inside: avoid; }
@@ -508,6 +531,7 @@ SITE_HEADER_TPL = """
 """
 
 PRINT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'
+COPY_ICON  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
 BACK_ICON  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>'
 HOME_ICON  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'
 
@@ -539,6 +563,7 @@ def html_page(title: str, body: str, breadcrumb: str = "") -> str:
   <title>{title} — 颱風監測系統</title>
   <meta name="description" content="台灣中央氣象署颱風監測自動報告">
   {BASE_CSS}
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
 {header}
@@ -549,6 +574,50 @@ def html_page(title: str, body: str, breadcrumb: str = "") -> str:
   資料來源：<a href="https://www.cwa.gov.tw" target="_blank" rel="noopener">交通部中央氣象署</a>
   &nbsp;·&nbsp; 每小時自動更新
 </footer>
+<script>
+async function copySectionAsPng(elementId, btn) {{
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  const origText = btn.innerHTML;
+  btn.innerHTML = '⏳ 處理中...';
+  btn.disabled = true;
+
+  try {{
+    const canvas = await html2canvas(el, {{
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#F8FAFC',
+      logging: false
+    }});
+
+    canvas.toBlob(async (blob) => {{
+      if (!blob) {{
+        btn.innerHTML = '❌ 失敗';
+        setTimeout(() => {{ btn.innerHTML = origText; btn.disabled = false; }}, 2000);
+        return;
+      }}
+      try {{
+        await navigator.clipboard.write([
+          new ClipboardItem({{ 'image/png': blob }})
+        ]);
+        btn.innerHTML = '✓ 已複製圖片！';
+      }} catch (err) {{
+        const a = document.createElement('a');
+        a.download = elementId + '.png';
+        a.href = URL.createObjectURL(blob);
+        a.click();
+        btn.innerHTML = '✓ 已下載 PNG';
+      }}
+      setTimeout(() => {{ btn.innerHTML = origText; btn.disabled = false; }}, 2000);
+    }}, 'image/png');
+  }} catch (e) {{
+    console.error(e);
+    btn.innerHTML = '❌ 錯誤';
+    setTimeout(() => {{ btn.innerHTML = origText; btn.disabled = false; }}, 2000);
+  }}
+}}
+</script>
 </body>
 </html>
 """
@@ -784,52 +853,70 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
     formatted_ts = format_ts(hour_key)
 
     body = f"""
-<h1 class="page-title">{zh_name}</h1>
-<p class="page-meta">
-  {formatted_ts}&nbsp;·&nbsp;{report_label}&nbsp;·&nbsp;收集時間：{collected}
-</p>
+<div id="report-content">
+  <h1 class="page-title">{zh_name}</h1>
+  <p class="page-meta">
+    {formatted_ts}&nbsp;·&nbsp;{report_label}&nbsp;·&nbsp;收集時間：{collected}
+  </p>
 
-<div class="btn-row">
-  <button class="btn btn-primary" onclick="window.print()">{PRINT_ICON}&nbsp;列印 / 存成 PDF</button>
-  <a class="btn btn-outline" href="../index.html">{BACK_ICON}&nbsp;回到時間軸</a>
-  <a class="btn btn-outline" href="../../index.html">{HOME_ICON}&nbsp;首頁</a>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="window.print()">{PRINT_ICON}&nbsp;列印 / 存成 PDF (直式)</button>
+    <button class="btn btn-outline" onclick="copySectionAsPng('report-content', this)">{COPY_ICON}&nbsp;複製整份報告圖片</button>
+    <a class="btn btn-outline" href="../index.html">{BACK_ICON}&nbsp;回到時間軸</a>
+    <a class="btn btn-outline" href="../../index.html">{HOME_ICON}&nbsp;首頁</a>
+  </div>
+
+  <div class="section-header">
+    <div class="section-label">警報颱風（{zh_name}）路徑潛勢預報</div>
+    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-warn', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+  </div>
+  <div id="sec-warn">
+    {imgs_html if imgs_html else '<div class="empty">圖片不可用</div>'}
+
+    <div class="card" style="padding:0;overflow:auto;margin-top:var(--space-4)">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>預報時段</th>
+            <th>預測時間</th>
+            <th>移向移速</th>
+            <th>北緯</th>
+            <th>東經</th>
+            <th>氣壓</th>
+            <th>最大風速</th>
+            <th>最大陣風</th>
+            <th>七級半徑</th>
+            <th>十級半徑</th>
+            <th>70%機率半徑</th>
+          </tr>
+        </thead>
+        <tbody>
+          {table_rows if table_rows else '<tr><td colspan="11" class="empty">無數值資料</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-header">
+    <div class="section-label">颱風消息 ➔ 路徑潛勢預報</div>
+    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-news', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+  </div>
+  <div id="sec-news">
+    {news_html}
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-header">
+    <div class="section-label">定量降水預報 ➔ 12小時預報圖</div>
+    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-qpf', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+  </div>
+  <div id="sec-qpf">
+    {qpf_html}
+  </div>
 </div>
-
-<div class="section-label">警報颱風（{zh_name}）路徑潛勢預報</div>
-{imgs_html if imgs_html else '<div class="empty">圖片不可用</div>'}
-
-<div class="card" style="padding:0;overflow:auto;margin-top:var(--space-4)">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>預報時段</th>
-        <th>預測時間</th>
-        <th>移向移速</th>
-        <th>北緯</th>
-        <th>東經</th>
-        <th>氣壓</th>
-        <th>最大風速</th>
-        <th>最大陣風</th>
-        <th>七級半徑</th>
-        <th>十級半徑</th>
-        <th>70%機率半徑</th>
-      </tr>
-    </thead>
-    <tbody>
-      {table_rows if table_rows else '<tr><td colspan="11" class="empty">無數值資料</td></tr>'}
-    </tbody>
-  </table>
-</div>
-
-<div class="divider"></div>
-
-<div class="section-label">颱風消息 ➔ 路徑潛勢預報</div>
-{news_html}
-
-<div class="divider"></div>
-
-<div class="section-label">定量降水預報 ➔ 12小時預報圖</div>
-{qpf_html}
 """
     bc = (
         f'<a href="../../index.html">{HOME_ICON}&nbsp;首頁</a>'
