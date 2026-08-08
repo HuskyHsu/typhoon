@@ -908,7 +908,7 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
     <button class="btn btn-primary" onclick="window.print()">{PRINT_ICON}&nbsp;列印 / 存成 PDF (直式)</button>
     <button class="btn btn-outline" onclick="copySectionAsPng('report-content', this)">{COPY_ICON}&nbsp;複製整份報告圖片</button>
     <a class="btn btn-outline" href="../index.html">{BACK_ICON}&nbsp;回到時間軸</a>
-    <a class="btn btn-outline" href="../../index.html">首頁</a>
+    <a class="btn btn-outline" href="../../../index.html">首頁</a>
   </div>
 
   <div class="section-header">
@@ -999,7 +999,7 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
 </div>
 """
     bc = (
-        f'<a href="../../index.html">首頁</a>'
+        f'<a href="../../../index.html">首頁</a>'
         f'<span class="sep">›</span>'
         f'<a href="../index.html">颱風 {tid}</a>'
         f'<span class="sep">›</span>'
