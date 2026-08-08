@@ -1,5 +1,5 @@
 {
-  "collected_at": "2026-08-08 22:44 CST",
+  "collected_at": "2026-08-08 22:45 CST",
   "typhoon_id": "DOLPHIN",
   "typhoon_name_zh": "中度颱風 白海豚（國際命名 DOLPHIN ）海上颱風警報",
   "cwa_timestamp": "202608081200",
@@ -8,6 +8,8 @@
   "img_url_72h": "https://www.cwa.gov.tw/Data/typhoon/TY_WARN/PTA_202608081200-72_DOLPHIN_zhtw.png",
   "img_url_120h": "https://www.cwa.gov.tw/Data/typhoon/TY_WARN/PTA_202608081200-120_DOLPHIN_zhtw.png",
   "img_url_b20": "https://www.cwa.gov.tw/Data/typhoon/TY_WARN/B20.png?T=202608081200",
+  "news_img_name": "PTA_202608081200-72_DOLPHIN_zhtw.png",
+  "has_qpf_imgs": true,
   "forecasts": [
     {
       "period": "6 小時",
