@@ -141,6 +141,27 @@ def parse_data_js(js_text: str) -> dict:
     if m5:
         result["report_no"] = m5.group(1)
 
+    # 颱風現況與預測解析
+    present_items = []
+    forecast_text = ""
+    m_tb = re.search(r'var\s+\w+_TabBody_C\s*=\s*\'(.*?)\';', js_text, re.DOTALL)
+    if m_tb:
+        html_tb = m_tb.group(1).replace("'+", "").replace("'", "")
+        soup_tb = BeautifulSoup(html_tb, 'html.parser')
+        ul_now = soup_tb.find('ul', class_='typ-nowlist')
+        if ul_now:
+            for li in ul_now.find_all('li'):
+                present_items.append(li.get_text(strip=True))
+
+        pred_h4 = soup_tb.find(lambda tag: tag.name == 'h4' and '颱風預測' in tag.get_text())
+        if pred_h4:
+            p_pred = pred_h4.find_next_sibling('p')
+            if p_pred:
+                forecast_text = p_pred.get_text(strip=True)
+
+    result["present_items"] = present_items
+    result["forecast_text"] = forecast_text
+
     # accordion-1 HTML（路徑潛勢預報各時段）
     # 這個 accordion 以 JavaScript 字串形式嵌在 JS 檔案內
     # 例如: var TY13_PTA_Data_C = '...' + '...' ;
@@ -354,6 +375,18 @@ def collect():
     if qpf_downloaded > 0:
         print(f"  ✓ 已下載 QPF 定量降水預報圖片 {qpf_downloaded} 張")
 
+    # 4.7 下載 海上颱風警報 警報單 (I10.png)
+    sheet_url = f"{CWA_BASE}/Data/typhoon/I10.png?T={timestamp}"
+    sheet_path = save_dir / "warning_sheet.png"
+    has_sheet = False
+    try:
+        sheet_bytes = fetch_bytes(sheet_url, headers=HEADERS_IMG)
+        sheet_path.write_bytes(sheet_bytes)
+        has_sheet = True
+        print(f"  ✓ 已下載 warning_sheet.png（{len(sheet_bytes)//1024} KB）")
+    except Exception as e:
+        print(f"  - 下載 警報單 I10.png 失敗: {e}")
+
     # 5. 解析 accordion 文字數值
     forecasts = parse_forecasts(info.get("accordion_html", ""))
     print(f"  ✓ 解析到 {len(forecasts)} 個預報時段")
@@ -371,6 +404,9 @@ def collect():
         "img_url_b20":       img_url_b20,
         "news_img_name":     news_img_name if news_img_bytes else "",
         "has_qpf_imgs":      qpf_downloaded > 0,
+        "has_warning_sheet": has_sheet,
+        "present_items":     info.get("present_items", []),
+        "forecast_text":     info.get("forecast_text", ""),
         "forecasts":         forecasts,
     }
     (save_dir / "data.json").write_text(

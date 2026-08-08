@@ -756,11 +756,14 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
     report_no     = data.get("report_no", "")
     issued_at     = data.get("issued_at", "")
     news_img_name = data.get("news_img_name", "")
+    present_items = data.get("present_items", [])
+    forecast_text = data.get("forecast_text", "")
 
-    img_dir  = DATA_DIR / tid / hour_key
-    has_72h  = (img_dir / "track_72h.png").exists()
-    has_120h = (img_dir / "track_120h.png").exists()
-    has_news = (img_dir / "news_track.png").exists()
+    img_dir   = DATA_DIR / tid / hour_key
+    has_72h   = (img_dir / "track_72h.png").exists()
+    has_120h  = (img_dir / "track_120h.png").exists()
+    has_news  = (img_dir / "news_track.png").exists()
+    has_sheet = (img_dir / "warning_sheet.png").exists()
 
     imgs_html = ""
     if has_72h:
@@ -817,6 +820,41 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
     else:
         qpf_html = '<div class="empty">尚無定量降水預報圖檔</div>'
 
+    # 海上颱風警報 現況與預測 HTML
+    has_b20 = (img_dir / "typhoon_map.png").exists()
+    b20_html = """
+<div class="img-wrap" style="margin-bottom:0">
+  <img src="typhoon_map.png" alt="颱風動態圖">
+  <div class="img-caption">颱風動態圖（B20.png）</div>
+</div>""" if has_b20 else '<div class="empty">無颱風動態圖</div>'
+
+    now_items_li = "".join([f'<li style="margin-bottom:6px;font-size:13px;color:var(--color-text-2)">{it}</li>' for it in present_items])
+    now_list_html = f'<ul style="padding-left:16px;margin-bottom:12px">{now_items_li}</ul>' if present_items else '<div class="empty">無現況文字</div>'
+    pred_html = f'<h4 style="font-size:13px;font-weight:600;color:var(--color-primary);margin-top:12px;margin-bottom:4px">颱風預測</h4><p style="font-size:13px;color:var(--color-text-2)">{forecast_text}</p>' if forecast_text else ''
+
+    status_card_html = f"""
+<div class="card" style="margin-bottom:0;height:100%">
+  <h4 style="font-size:13px;font-weight:600;color:var(--color-primary);margin-bottom:8px">颱風現況</h4>
+  {now_list_html}
+  {pred_html}
+</div>"""
+
+    sea_warn_html = f"""
+<div class="grid-2" style="align-items:start">
+  {b20_html}
+  {status_card_html}
+</div>"""
+
+    # 警報單 HTML
+    if has_sheet:
+        sheet_html = """
+<div class="img-wrap">
+  <img src="warning_sheet.png" alt="颱風警報單">
+  <div class="img-caption">颱風警報單（I10.png）</div>
+</div>"""
+    else:
+        sheet_html = '<div class="empty">無警報單圖檔</div>'
+
     # table
     table_rows = ""
     for fc in forecasts:
@@ -867,6 +905,16 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
   </div>
 
   <div class="section-header">
+    <div class="section-label">海上颱風警報 ➔ 颱風現況與預測</div>
+    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-sea-warn', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+  </div>
+  <div id="sec-sea-warn">
+    {sea_warn_html}
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-header">
     <div class="section-label">警報颱風（{zh_name}）路徑潛勢預報</div>
     <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-warn', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
   </div>
@@ -915,6 +963,16 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
   </div>
   <div id="sec-qpf">
     {qpf_html}
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-header">
+    <div class="section-label">警報單</div>
+    <button class="btn btn-xs btn-outline section-copy-btn" onclick="copySectionAsPng('sec-sheet', this)">{COPY_ICON}&nbsp;複製區塊圖片</button>
+  </div>
+  <div id="sec-sheet">
+    {sheet_html}
   </div>
 </div>
 """
@@ -976,7 +1034,8 @@ def build():
             hour_dir.mkdir(exist_ok=True)
 
             qpf_imgs = ["qpf_qzj.jpg", "qpf_12_12.png", "qpf_12_24.png", "qpf_12_36.png", "qpf_12_48.png"]
-            for fname in ["track_72h.png", "track_120h.png", "typhoon_map.png", "news_track.png"] + qpf_imgs:
+            all_imgs = ["track_72h.png", "track_120h.png", "typhoon_map.png", "news_track.png", "warning_sheet.png"] + qpf_imgs
+            for fname in all_imgs:
                 src = DATA_DIR / tid / hk / fname
                 dst = hour_dir / fname
                 if src.exists() and not dst.exists():
