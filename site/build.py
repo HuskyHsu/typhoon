@@ -304,6 +304,28 @@ BASE_CSS = """
     margin: 0 auto;
   }
 
+  .img-wrap-half {
+    max-width: 50%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  @media (max-width: 640px) {
+    .img-wrap-half { max-width: 100%; }
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .grid-2 .img-wrap {
+    margin-bottom: 0;
+  }
+  @media (max-width: 640px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
   .img-caption {
     font-size: 11px;
     color: var(--color-text-3);
@@ -659,29 +681,72 @@ def build_typhoon_index(tid: str, event_index: dict) -> str:
     bc = f'<a href="../../index.html">{HOME_ICON}&nbsp;首頁</a><span class="sep">›</span><span>颱風 {tid}</span>'
     return html_page(f"颱風 {tid}", body, breadcrumb=bc)
 def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
-    forecasts  = data.get("forecasts", [])
-    collected  = data.get("collected_at", "")
-    zh_name    = data.get("typhoon_name_zh", tid)
-    report_no  = data.get("report_no", "")
-    issued_at  = data.get("issued_at", "")
+    forecasts     = data.get("forecasts", [])
+    collected     = data.get("collected_at", "")
+    zh_name       = data.get("typhoon_name_zh", tid)
+    report_no     = data.get("report_no", "")
+    issued_at     = data.get("issued_at", "")
+    news_img_name = data.get("news_img_name", "")
 
     img_dir  = DATA_DIR / tid / hour_key
     has_72h  = (img_dir / "track_72h.png").exists()
     has_120h = (img_dir / "track_120h.png").exists()
+    has_news = (img_dir / "news_track.png").exists()
 
     imgs_html = ""
     if has_72h:
         imgs_html += f"""
 <div class="img-wrap">
   <img src="track_72h.png" alt="颱風路徑潛勢預報 72小時">
-  <div class="img-caption">路徑潛勢預報圖（72 小時）· 資料時間：{issued_at}</div>
+  <div class="img-caption">警報路徑潛勢預報圖（72 小時）· 資料時間：{issued_at}</div>
 </div>"""
     if has_120h:
         imgs_html += f"""
 <div class="img-wrap" style="margin-top:var(--space-3)">
   <img src="track_120h.png" alt="颱風路徑潛勢預報 120小時">
-  <div class="img-caption">路徑潛勢預報圖（120 小時）</div>
+  <div class="img-caption">警報路徑潛勢預報圖（120 小時）</div>
 </div>"""
+
+    # 颱風消息圖片
+    if has_news:
+        fn_text = f"（檔名：{news_img_name}）" if news_img_name else ""
+        news_html = f"""
+<div class="img-wrap">
+  <img src="news_track.png" alt="颱風消息 路徑潛勢預報">
+  <div class="img-caption">颱風消息 ➔ 路徑潛勢預報圖 {fn_text}</div>
+</div>"""
+    else:
+        news_html = '<div class="empty">尚無颱風消息圖檔</div>'
+
+    # 定量降水預報 12小時預報圖 (5張)
+    has_qpf = (img_dir / "qpf_qzj.jpg").exists() or (img_dir / "qpf_12_12.png").exists()
+    if has_qpf:
+        qpf_qzj_html = ""
+        if (img_dir / "qpf_qzj.jpg").exists():
+            qpf_qzj_html = """
+<div class="img-wrap img-wrap-half">
+  <img src="qpf_qzj.jpg" alt="最新雨量累積圖">
+  <div class="img-caption">最新雨量累積圖</div>
+</div>"""
+
+        grid_imgs = []
+        for fn, title in [
+            ("qpf_12_12.png", "定量降水預報（Ⅰ）"),
+            ("qpf_12_24.png", "定量降水預報（Ⅱ）"),
+            ("qpf_12_36.png", "定量降水預報（Ⅲ）"),
+            ("qpf_12_48.png", "定量降水預報（Ⅳ）"),
+        ]:
+            if (img_dir / fn).exists():
+                grid_imgs.append(f"""
+<div class="img-wrap">
+  <img src="{fn}" alt="{title}">
+  <div class="img-caption">{title}</div>
+</div>""")
+
+        grid_html = f'<div class="grid-2">{"".join(grid_imgs)}</div>' if grid_imgs else ""
+        qpf_html = f"{qpf_qzj_html}{grid_html}"
+    else:
+        qpf_html = '<div class="empty">尚無定量降水預報圖檔</div>'
 
     # table
     table_rows = ""
@@ -730,13 +795,10 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
   <a class="btn btn-outline" href="../../index.html">{HOME_ICON}&nbsp;首頁</a>
 </div>
 
-<div class="section-label">路徑潛勢預報圖</div>
+<div class="section-label">警報颱風（{zh_name}）路徑潛勢預報</div>
 {imgs_html if imgs_html else '<div class="empty">圖片不可用</div>'}
 
-<div class="divider"></div>
-
-<div class="section-label">路徑數值預報</div>
-<div class="card" style="padding:0;overflow:auto">
+<div class="card" style="padding:0;overflow:auto;margin-top:var(--space-4)">
   <table class="data-table">
     <thead>
       <tr>
@@ -758,6 +820,16 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
     </tbody>
   </table>
 </div>
+
+<div class="divider"></div>
+
+<div class="section-label">颱風消息 ➔ 路徑潛勢預報</div>
+{news_html}
+
+<div class="divider"></div>
+
+<div class="section-label">定量降水預報 ➔ 12小時預報圖</div>
+{qpf_html}
 """
     bc = (
         f'<a href="../../index.html">{HOME_ICON}&nbsp;首頁</a>'
@@ -816,7 +888,8 @@ def build():
             hour_dir = ty_dir / hk
             hour_dir.mkdir(exist_ok=True)
 
-            for fname in ["track_72h.png", "track_120h.png", "typhoon_map.png"]:
+            qpf_imgs = ["qpf_qzj.jpg", "qpf_12_12.png", "qpf_12_24.png", "qpf_12_36.png", "qpf_12_48.png"]
+            for fname in ["track_72h.png", "track_120h.png", "typhoon_map.png", "news_track.png"] + qpf_imgs:
                 src = DATA_DIR / tid / hk / fname
                 dst = hour_dir / fname
                 if src.exists() and not dst.exists():

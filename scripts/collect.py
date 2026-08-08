@@ -59,6 +59,49 @@ def fetch_bytes(url: str, headers: dict = None) -> bytes:
     return resp.content
 
 
+def fetch_ty_news_img(typhoon_id: str):
+    """
+    從 TY_NEWS (颱風消息) 取得該颱風最新「路徑潛勢預報」圖檔
+    """
+    headers_news = {
+        **HEADERS_BASE,
+        "Referer": f"{CWA_BASE}/V8/C/P/Typhoon/TY_NEWS.html",
+    }
+    try:
+        js_url = f"{CWA_BASE}/Data/js/typhoon/TY_NEWS-Data.js"
+        js_text = fetch_text(js_url, headers=headers_news)
+        m = re.search(r"TY_DataTime\s*=\s*'(\d+)'", js_text)
+        if not m:
+            return None, None
+        data_time = m.group(1)
+
+        json_url = f"{CWA_BASE}/Data/typhoon/TY_NEWS/PTA_IMGS_{data_time}_zhtw.json"
+        resp = requests.get(json_url, headers=headers_news, timeout=30, verify=False)
+        if resp.status_code != 200:
+            return None, None
+
+        data = resp.json()
+        target_list = []
+        for item in data.get("EACH", []):
+            if item.get("id") == typhoon_id:
+                target_list = item.get("list", [])
+                break
+
+        # 過濾只保留 PTA_ 開頭檔名（排除 PTA72_ 前綴），取最後一張（即最長預報時數）
+        pta_files = [f for f in target_list if f.startswith("PTA_")]
+        if not pta_files:
+            return None, None
+
+        latest_img_name = pta_files[-1]
+        img_url = f"{CWA_BASE}/Data/typhoon/TY_NEWS/{latest_img_name}"
+
+        img_bytes = fetch_bytes(img_url, headers=headers_news)
+        return latest_img_name, img_bytes
+    except Exception as e:
+        print(f"  - 取得 颱風消息 圖片失敗: {e}")
+        return None, None
+
+
 # ─── 從 TY_WARN-Data.js 解析颱風資訊 ──────────────────────────────────────────
 
 def parse_data_js(js_text: str) -> dict:
@@ -283,6 +326,34 @@ def collect():
             # 120h 圖不一定存在，404 是正常的
             print(f"  - {filename} 無法取得（可能氣象署未發布此時數）")
 
+    # 4.5 下載 颱風消息 (TY_NEWS) 路徑潛勢預報圖
+    news_img_name, news_img_bytes = fetch_ty_news_img(typhoon_id)
+    if news_img_bytes:
+        news_path = save_dir / "news_track.png"
+        news_path.write_bytes(news_img_bytes)
+        print(f"  ✓ 已下載 news_track.png ({news_img_name}，{len(news_img_bytes)//1024} KB)")
+
+    # 4.6 下載 定量降水預報 (QPF) 5 張圖片
+    qpf_urls = [
+        ("qpf_qzj.jpg",  f"{CWA_BASE}/Data/rainfall/QZJ.jpg"),
+        ("qpf_12_12.png", f"{CWA_BASE}/Data/fcst_img/QPF_ChFcstPrecip_12_12.png"),
+        ("qpf_12_24.png", f"{CWA_BASE}/Data/fcst_img/QPF_ChFcstPrecip_12_24.png"),
+        ("qpf_12_36.png", f"{CWA_BASE}/Data/fcst_img/QPF_ChFcstPrecip_12_36.png"),
+        ("qpf_12_48.png", f"{CWA_BASE}/Data/fcst_img/QPF_ChFcstPrecip_12_48.png"),
+    ]
+    headers_qpf = {**HEADERS_BASE, "Referer": f"{CWA_BASE}/V8/C/P/QPF.html"}
+    qpf_downloaded = 0
+    for fname, url in qpf_urls:
+        qpf_path = save_dir / fname
+        try:
+            qpf_bytes = fetch_bytes(url, headers=headers_qpf)
+            qpf_path.write_bytes(qpf_bytes)
+            qpf_downloaded += 1
+        except Exception as e:
+            print(f"  - 下載 QPF 圖片 {fname} 失敗: {e}")
+    if qpf_downloaded > 0:
+        print(f"  ✓ 已下載 QPF 定量降水預報圖片 {qpf_downloaded} 張")
+
     # 5. 解析 accordion 文字數值
     forecasts = parse_forecasts(info.get("accordion_html", ""))
     print(f"  ✓ 解析到 {len(forecasts)} 個預報時段")
@@ -298,6 +369,8 @@ def collect():
         "img_url_72h":       img_url_72h,
         "img_url_120h":      img_url_120h,
         "img_url_b20":       img_url_b20,
+        "news_img_name":     news_img_name if news_img_bytes else "",
+        "has_qpf_imgs":      qpf_downloaded > 0,
         "forecasts":         forecasts,
     }
     (save_dir / "data.json").write_text(
