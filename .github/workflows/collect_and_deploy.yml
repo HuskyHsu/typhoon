@@ -2,34 +2,37 @@ name: 颱風資料收集 + 部署
 
 on:
   schedule:
-    # 每小時 10 分執行（等氣象署更新資料後再抓）
-    - cron: '10 * * * *'
+    # 避開整點 :00 高峰佇列，改在每小時 15 分執行（氣象署更新資料後抓取）
+    - cron: '15 * * * *'
   push:
     branches:
       - main
-  workflow_dispatch:   # 也可以手動觸發
+    paths-ignore:
+      - 'data/**'
+      - 'public/**'
+  workflow_dispatch: # 也可以手動觸發
 
 permissions:
-  contents: write      # 需要 commit data/ 目錄
+  contents: write # 需要 commit data/ 目錄
   pages: write
   id-token: write
 
 # 確保同一時間只有一個部署在執行
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: false
 
 jobs:
   collect-and-deploy:
     runs-on: ubuntu-latest
     env:
-      TZ: Asia/Taipei   # 所有 step 統一使用台灣時間 UTC+8
+      TZ: Asia/Taipei # 所有 step 統一使用台灣時間 UTC+8
     steps:
       # ── 1. 取得程式碼 ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0     # 取得完整 git 歷史（保留已收集的 data/）
+          fetch-depth: 0 # 取得完整 git 歷史（保留已收集的 data/）
 
       # ── 2. 設定 Python ───────────────────────────────────────────────────────
       - name: Set up Python
@@ -45,7 +48,7 @@ jobs:
       # ── 3. 收集資料 ──────────────────────────────────────────────────────────
       - name: Collect typhoon data
         run: python3 scripts/collect.py
-        continue-on-error: true   # 就算無颱風也繼續執行（只是不會有新資料）
+        continue-on-error: true # 就算無颱風也繼續執行（只是不會有新資料）
 
       # ── 4. 建置靜態網站 ──────────────────────────────────────────────────────
       - name: Build static site
@@ -57,8 +60,8 @@ jobs:
           git config user.name  "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add data/
-          # 只在有新資料時才 commit
-          git diff --staged --quiet || git commit -m "data: 自動收集 $(date '+%Y-%m-%d %H:%M CST')"
+          # 只在有新資料時才 commit，並附上 [skip ci]
+          git diff --staged --quiet || git commit -m "data: 自動收集 $(date '+%Y-%m-%d %H:%M CST') [skip ci]"
 
       - name: Push data
         run: git push
