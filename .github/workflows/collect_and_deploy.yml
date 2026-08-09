@@ -10,7 +10,9 @@ on:
     paths-ignore:
       - 'data/**'
       - 'public/**'
-  workflow_dispatch: # 也可以手動觸發
+  workflow_dispatch: # 支援手動與 GitHub API 手動觸發
+  repository_dispatch: # 支援外部 Webhook (如 cron-job.org / Cloudflare Worker) 觸發
+    types: [collect_trigger]
 
 permissions:
   contents: write # 需要 commit data/ 目錄
