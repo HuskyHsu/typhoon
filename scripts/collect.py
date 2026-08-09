@@ -102,6 +102,50 @@ def fetch_ty_news_img(typhoon_id: str):
         return None, None
 
 
+# ─── 動態抓取 海上颱風警報 (TY_WARN) 最新路徑潛勢預報圖 ─────────────────────────
+
+def fetch_ty_warn_pta_img(typhoon_id: str, timestamp: str) -> tuple[str, bytes]:
+    """
+    從 TY_WARN 的 JSON API (PTA_IMGS_{timestamp}_zhtw.json) 動態取得最新 PTA 路徑潛勢預報圖。
+    例如 PTA_202608090300-48_DOLPHIN_zhtw.png 等。
+    回傳 (img_name, img_bytes)
+    """
+    headers = {**HEADERS_BASE, "Referer": f"{CWA_BASE}/V8/C/P/Typhoon/PTA.html"}
+    json_url = f"{CWA_BASE}/Data/typhoon/TY_WARN/PTA_IMGS_{timestamp}_zhtw.json"
+
+    candidate_files = []
+    try:
+        resp = requests.get(json_url, headers=headers, verify=False, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            for item in data.get("EACH", []):
+                if item.get("id") == typhoon_id:
+                    candidate_files = item.get("list", [])
+                    break
+    except Exception as e:
+        print(f"  - 取得 TY_WARN PTA JSON 失敗: {e}")
+
+    # 過濾只留 PTA_ 開頭（排除 PTA72_ 前綴）
+    pta_files = [f for f in candidate_files if f.startswith("PTA_")]
+
+    # 若 JSON API 未回傳或抓不到，備用推測常見時數
+    if not pta_files:
+        for hours in ["72", "48", "36", "24", "120", "12"]:
+            pta_files.append(f"PTA_{timestamp}-{hours}_{typhoon_id}_zhtw.png")
+
+    # 取預報時數最長（list 最後面）的圖檔，或倒序嘗試下載
+    for fname in reversed(pta_files):
+        img_url = f"{CWA_BASE}/Data/typhoon/TY_WARN/{fname}"
+        try:
+            img_bytes = fetch_bytes(img_url, headers=headers)
+            if img_bytes and len(img_bytes) > 1000:
+                return fname, img_bytes
+        except Exception:
+            continue
+
+    return None, None
+
+
 # ─── 從 TY_WARN-Data.js 解析颱風資訊 ──────────────────────────────────────────
 
 def parse_data_js(js_text: str) -> dict:
@@ -318,34 +362,23 @@ def collect():
     save_dir = DATA_DIR / typhoon_id / hour_key
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    # 4. 下載 PTA 路徑預報圖
-    # URL 格式：PTA_{時間戳}-{預報時數}_{颱風英文名}_zhtw.png
-    # 預報時數：72 = 72小時路徑預報圖（含未來路徑），120 = 120小時
-    # -0 只是現況圖，不包含預報路徑，不是我們要的
+    # 4. 下載 PTA 路徑預報圖 (TY_WARN)
+    warn_img_name, warn_img_bytes = fetch_ty_warn_pta_img(typhoon_id, timestamp)
+    if warn_img_bytes:
+        (save_dir / "track_72h.png").write_bytes(warn_img_bytes)
+        (save_dir / "warn_track.png").write_bytes(warn_img_bytes)
+        print(f"  ✓ 已下載 warn_track.png ({warn_img_name}，{len(warn_img_bytes)//1024} KB)")
 
     # B20.png：颱風動態圖（TY_WARN 頁面的主要地圖）
     img_url_b20 = f"{CWA_BASE}/Data/typhoon/TY_WARN/B20.png?T={timestamp}"
-
-    # 嘗試下載 72h 和 120h 預報圖（後綴是預報時數，不是序號）
-    img_url_72h  = f"{CWA_BASE}/Data/typhoon/TY_WARN/PTA_{timestamp}-72_{typhoon_id}_zhtw.png"
-    img_url_120h = f"{CWA_BASE}/Data/typhoon/TY_WARN/PTA_{timestamp}-120_{typhoon_id}_zhtw.png"
-
-    for label, url, filename in [
-        ("PTA 72h 路徑預報圖",  img_url_72h,  "track_72h.png"),
-        ("PTA 120h 路徑預報圖", img_url_120h, "track_120h.png"),
-        ("B20 動態圖",          img_url_b20,  "typhoon_map.png"),
-    ]:
-        path = save_dir / filename
-        if path.exists():
-            print(f"  ↩ {filename} 已存在，跳過")
-            continue
+    b20_path = save_dir / "typhoon_map.png"
+    if not b20_path.exists():
         try:
-            data = fetch_bytes(url, headers=HEADERS_IMG)
-            path.write_bytes(data)
-            print(f"  ✓ 已下載 {filename}（{len(data)//1024} KB）")
+            b20_bytes = fetch_bytes(img_url_b20, headers=HEADERS_IMG)
+            b20_path.write_bytes(b20_bytes)
+            print(f"  ✓ 已下載 typhoon_map.png（{len(b20_bytes)//1024} KB）")
         except Exception as e:
-            # 120h 圖不一定存在，404 是正常的
-            print(f"  - {filename} 無法取得（可能氣象署未發布此時數）")
+            print(f"  - typhoon_map.png 無法取得: {e}")
 
     # 4.5 下載 颱風消息 (TY_NEWS) 路徑潛勢預報圖
     news_img_name, news_img_bytes = fetch_ty_news_img(typhoon_id)
@@ -399,9 +432,7 @@ def collect():
         "cwa_timestamp":     timestamp,
         "issued_at":         info.get("issued_at", ""),
         "report_no":         info.get("report_no", ""),
-        "img_url_72h":       img_url_72h,
-        "img_url_120h":      img_url_120h,
-        "img_url_b20":       img_url_b20,
+        "warn_img_name":     warn_img_name if warn_img_bytes else "",
         "news_img_name":     news_img_name if news_img_bytes else "",
         "has_qpf_imgs":      qpf_downloaded > 0,
         "has_warning_sheet": has_sheet,

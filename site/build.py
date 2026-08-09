@@ -762,22 +762,25 @@ def build_hour_report(tid: str, hour_key: str, data: dict) -> str:
     zh_name       = data.get("typhoon_name_zh", tid)
     report_no     = data.get("report_no", "")
     issued_at     = data.get("issued_at", "")
+    warn_img_name = data.get("warn_img_name", "")
     news_img_name = data.get("news_img_name", "")
     present_items = data.get("present_items", [])
     forecast_text = data.get("forecast_text", "")
 
     img_dir   = DATA_DIR / tid / hour_key
-    has_72h   = (img_dir / "track_72h.png").exists()
+    has_warn  = (img_dir / "warn_track.png").exists() or (img_dir / "track_72h.png").exists()
     has_120h  = (img_dir / "track_120h.png").exists()
     has_news  = (img_dir / "news_track.png").exists()
     has_sheet = (img_dir / "warning_sheet.png").exists()
 
     imgs_html = ""
-    if has_72h:
+    if has_warn:
+        src_name = "warn_track.png" if (img_dir / "warn_track.png").exists() else "track_72h.png"
+        fn_text = f"（檔名：{warn_img_name}）" if warn_img_name else ""
         imgs_html += f"""
 <div class="img-wrap">
-  <img src="track_72h.png" alt="颱風路徑潛勢預報 72小時">
-  <div class="img-caption">警報路徑潛勢預報圖（72 小時）· 資料時間：{issued_at}</div>
+  <img src="{src_name}" alt="警報路徑潛勢預報圖">
+  <div class="img-caption">警報路徑潛勢預報圖 {fn_text} · 資料時間：{issued_at}</div>
 </div>"""
     if has_120h:
         imgs_html += f"""
@@ -1056,7 +1059,7 @@ def build():
             hour_dir.mkdir(exist_ok=True)
 
             qpf_imgs = ["qpf_qzj.jpg", "qpf_12_12.png", "qpf_12_24.png", "qpf_12_36.png", "qpf_12_48.png"]
-            all_imgs = ["track_72h.png", "track_120h.png", "typhoon_map.png", "news_track.png", "warning_sheet.png"] + qpf_imgs
+            all_imgs = ["warn_track.png", "track_72h.png", "track_120h.png", "typhoon_map.png", "news_track.png", "warning_sheet.png"] + qpf_imgs
             for fname in all_imgs:
                 src = DATA_DIR / tid / hk / fname
                 dst = hour_dir / fname
