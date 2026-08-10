@@ -1,9 +1,9 @@
 name: 颱風資料收集 + 部署
 
 on:
-  schedule:
-    # 避開整點 :00 高峰佇列，改在每小時 15 分執行（氣象署更新資料後抓取）
-    - cron: '15 * * * *'
+  # schedule:
+  #   # 避開整點 :00 高峰佇列，改在每小時 15 分執行（氣象署更新資料後抓取）
+  #   - cron: '15 * * * *'
   push:
     branches:
       - main
@@ -11,7 +11,7 @@ on:
       - 'data/**'
       - 'public/**'
   workflow_dispatch: # 支援手動與 GitHub API 手動觸發
-  repository_dispatch: # 支援外部 Webhook (如 cron-job.org / Cloudflare Worker) 觸發
+  repository_dispatch: # 支援外部 Webhook 觸發
     types: [collect_trigger]
 
 permissions:
